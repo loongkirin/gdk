@@ -40,8 +40,8 @@ func EncryptBytes(key, text []byte) (string, error) {
 	return EncodeBytesToBase64(ciphertext), nil
 }
 
-func Decrypt(key, b64 string) (string, error) {
-	text, err := DecodeBase64ToBytes(b64)
+func Decrypt(key, b64s string) (string, error) {
+	text, err := DecodeBase64ToBytes(b64s)
 	if err != nil {
 		return "", nil
 	}
@@ -67,14 +67,14 @@ func EncodeBytesToBase64(b []byte) string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-func DecodeBase64(b64 string) (string, error) {
-	data, err := base64.StdEncoding.DecodeString(b64)
+func DecodeBase64(b64s string) (string, error) {
+	data, err := base64.StdEncoding.DecodeString(b64s)
 	if err != nil {
 		return "", err
 	}
 	return string(data), nil
 }
 
-func DecodeBase64ToBytes(b64 string) ([]byte, error) {
-	return base64.StdEncoding.DecodeString(b64)
+func DecodeBase64ToBytes(b64s string) ([]byte, error) {
+	return base64.StdEncoding.DecodeString(b64s)
 }

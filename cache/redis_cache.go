@@ -24,6 +24,19 @@ func NewRedisStore(redisClient *redis.Client, preKey string, defaultExpiration t
 	}
 }
 
+func NewRedisStoreWithCfg(cfg RedisConfig, preKey string, defaultExpiration time.Duration) (*RedisStore, error) {
+	client := redis.NewClient(&redis.Options{
+		Addr:     cfg.Addr,
+		Password: cfg.Password,
+		DB:       cfg.DB,
+	})
+	_, err := client.Ping(context.Background()).Result()
+	if err != nil {
+		return nil, err
+	}
+	return NewRedisStore(client, preKey, defaultExpiration), nil
+}
+
 func (rs *RedisStore) UseWithContext(ctx context.Context) *RedisStore {
 	rs.Context = ctx
 	return rs
