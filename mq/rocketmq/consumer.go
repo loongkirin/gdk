@@ -3,25 +3,43 @@ package rocketmq
 import (
 	"context"
 	"fmt"
+	"time"
 
-	"github.com/apache/rocketmq-client-go/v2"
-	"github.com/apache/rocketmq-client-go/v2/consumer"
-	"github.com/apache/rocketmq-client-go/v2/primitive"
+	"github.com/apache/rocketmq-clients/golang/v5"
+	"github.com/apache/rocketmq-clients/golang/v5/credentials"
 	"github.com/loongkirin/gdk/mq"
+)
+
+var (
+	// maximum waiting time for receive func
+	awaitDuration = time.Second * 5
+	// maximum number of messages received at one time
+	maxMessageNum int32 = 16
+	// invisibleDuration should > 20s
+	invisibleDuration = time.Second * 20
+	// receive messages in a loop
 )
 
 type rocketmqConsumer struct {
 	config   Config
-	consumer rocketmq.PushConsumer
-	sigint   chan bool
+	consumer golang.SimpleConsumer
 }
 
 func NewConsumer(cfg Config) *rocketmqConsumer {
-	c, err := rocketmq.NewPushConsumer(
-		consumer.WithGroupName(cfg.GroupName),
-		consumer.WithNsResolver(primitive.NewPassthroughResolver(cfg.Brokers)),
+	c, err := golang.NewSimpleConsumer(&golang.Config{
+		Endpoint:      cfg.Endpoint,
+		ConsumerGroup: cfg.GroupName,
+		NameSpace:     cfg.NameSpace,
+		Credentials: &credentials.SessionCredentials{
+			AccessKey:    cfg.AccessKey,
+			AccessSecret: cfg.SecretKey,
+		},
+	},
+		golang.WithAwaitDuration(awaitDuration),
+		golang.WithSubscriptionExpressions(map[string]*golang.FilterExpression{
+			cfg.TopicName: golang.SUB_ALL,
+		}),
 	)
-
 	if err != nil {
 		fmt.Printf("Failed to create consumer: %s\n", err)
 		return nil
@@ -34,33 +52,33 @@ func NewConsumer(cfg Config) *rocketmqConsumer {
 }
 
 func (c *rocketmqConsumer) Start(ctx context.Context, fn mq.ConsumeMessage) error {
-	c.sigint = make(chan bool, 1)
-	err := c.consumer.Subscribe(c.config.TopicName, consumer.MessageSelector{}, func(ctx context.Context,
-		msgs ...*primitive.MessageExt) (consumer.ConsumeResult, error) {
-		for i := range msgs {
-			err := fn(ctx, msgs[i])
-			if err != nil {
-				fmt.Printf("Failed to consumer message: %s\n", err)
-				return consumer.ConsumeRetryLater, err
-			}
-		}
-
-		return consumer.ConsumeSuccess, nil
-	})
+	err := c.consumer.Start()
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Printf("Failed to start consumer: %s\n", err)
 		return err
 	}
-	err = c.consumer.Start()
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	return err
+
+	go func() {
+		for {
+			fmt.Println("start recevie message")
+			mvs, err := c.consumer.Receive(ctx, maxMessageNum, invisibleDuration)
+			if err != nil {
+				fmt.Println(err)
+			}
+			// ack message
+			for _, mv := range mvs {
+				err = fn(ctx, mv)
+				if err != nil {
+					c.consumer.Ack(ctx, mv)
+				}
+			}
+			time.Sleep(time.Second * 3)
+		}
+	}()
+	return nil
 }
 
 func (c *rocketmqConsumer) Close() {
-	c.sigint <- false
-	close(c.sigint)
 	c.consumer.Unsubscribe(c.config.TopicName)
-	c.consumer.Shutdown()
+	c.consumer.GracefulStop()
 }
