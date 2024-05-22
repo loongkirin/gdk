@@ -3,63 +3,56 @@ package gorm
 import (
 	"context"
 	"database/sql"
-	"errors"
 
 	gdk "github.com/loongkirin/gdk/database/gorm"
-	"github.com/loongkirin/gdk/database/unitofwork"
+	uow "github.com/loongkirin/gdk/database/unitofwork"
 	"gorm.io/gorm"
 )
 
-var (
-	ErrRepositoryNotRegistered     = errors.New("repository not registered")
-	ErrRepositoryAlreadyRegistered = errors.New("repository already registered")
-	ErrInvalidRepositoryType       = errors.New("invalid repository type")
-)
-
-type UnitOfWork struct {
+type unitOfWork struct {
 	db           *gorm.DB
-	repositories map[string]unitofwork.RepositoryFactory
+	repositories map[string]uow.RepositoryFactory
 }
 
-func NewUnitOfWork(dbContext gdk.DbContext) unitofwork.UnitOfWork {
+func NewUnitOfWork(dbContext gdk.DbContext) uow.UnitOfWork {
 	db := dbContext.GetDb()
 	if db == nil {
 		return nil
 	}
-	return &UnitOfWork{
+	return &unitOfWork{
 		db:           db,
-		repositories: make(map[string]unitofwork.RepositoryFactory),
+		repositories: make(map[string]uow.RepositoryFactory),
 	}
 }
 
-func (u *UnitOfWork) Register(name string, factory unitofwork.RepositoryFactory) error {
+func (u *unitOfWork) Register(name string, factory uow.RepositoryFactory) error {
 	if _, ok := u.repositories[name]; ok {
-		return ErrRepositoryAlreadyRegistered
+		return uow.ErrRepositoryAlreadyRegistered
 	}
 
 	u.repositories[name] = factory
 	return nil
 }
 
-func (u *UnitOfWork) Remove(name string) error {
+func (u *unitOfWork) Remove(name string) error {
 	if _, ok := u.repositories[name]; !ok {
-		return ErrRepositoryNotRegistered
+		return uow.ErrRepositoryNotRegistered
 	}
 
 	delete(u.repositories, name)
 	return nil
 }
 
-func (u *UnitOfWork) Has(name string) bool {
+func (u *unitOfWork) Has(name string) bool {
 	_, ok := u.repositories[name]
 	return ok
 }
 
-func (u *UnitOfWork) Clear() {
-	u.repositories = make(map[string]unitofwork.RepositoryFactory)
+func (u *unitOfWork) Clear() {
+	u.repositories = make(map[string]uow.RepositoryFactory)
 }
 
-func (u *UnitOfWork) Do(ctx context.Context, t unitofwork.Transaction, fn func(ctx context.Context, tx unitofwork.TxHandler) error, opts ...*sql.TxOptions) error {
+func (u *unitOfWork) Do(ctx context.Context, t uow.Transaction, fn uow.SaveChange, opts ...*sql.TxOptions) error {
 	tx, err := t.Begin(opts...)
 	if err != nil {
 		return err

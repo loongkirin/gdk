@@ -15,11 +15,12 @@ var (
 type DB any
 type UOWRepository any
 type RepositoryFactory func(db DB) UOWRepository
+type SaveChange func(ctx context.Context, tx TxHandler) error
 
 type UnitOfWork interface {
 	Register(name string, factory RepositoryFactory) error
 	Remove(name string) error
 	Has(name string) bool
 	Clear()
-	Do(ctx context.Context, t Transaction, fn func(ctx context.Context, tx TxHandler) error, opts ...*sql.TxOptions) error
+	Do(ctx context.Context, t Transaction, fn SaveChange, opts ...*sql.TxOptions) error
 }
