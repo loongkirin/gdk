@@ -5,14 +5,8 @@ import (
 	"fmt"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/loongkirin/gdk/mq"
 )
-
-type ConsumeMessage func(ctx context.Context, msg *kafka.Message) error
-
-type Consumer interface {
-	Start() error
-	Close()
-}
 
 type consumer struct {
 	config   Config
@@ -50,7 +44,7 @@ func NewConsumer(cfg Config) *consumer {
 	}
 }
 
-func (c *consumer) Start(ctx context.Context, fn ConsumeMessage) error {
+func (c *consumer) Start(ctx context.Context, fn mq.ConsumeMessage) error {
 	c.sigint = make(chan bool, 1)
 	err := c.consumer.Subscribe(c.config.TopicName, nil)
 	if err != nil {
@@ -118,6 +112,7 @@ func (c *consumer) Close() {
 		return
 	}
 	c.sigint <- false
+	close(c.sigint)
 	c.consumer.Unsubscribe()
 	c.consumer.Close()
 }

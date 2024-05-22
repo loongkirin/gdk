@@ -9,12 +9,6 @@ import (
 	"github.com/loongkirin/gdk/util"
 )
 
-type Producer interface {
-	PublishMessage(ctx context.Context, msg string) error
-	PublishMessageAsync(ctx context.Context, msg string) error
-	Close()
-}
-
 type producer struct {
 	config   Config
 	producer *kafka.Producer
