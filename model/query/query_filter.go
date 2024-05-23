@@ -1,19 +1,19 @@
 package query
 
 type QueryFilter struct {
-	FieldName       string        `json:"field_name"`
-	FilterValues    []interface{} `json:"filter_values"`
-	FilterOperation string        `json:"filter_operation"`
-	Connector       string        `json:"connector"`
-	FieldType       string        `json:"field_type"`
+	FieldName    string        `json:"field_name"`
+	FilterValues []interface{} `json:"filter_values"`
+	Operator     Operator      `json:"operator"`
+	Connector    Connector     `json:"connector"`
+	FieldType    string        `json:"field_type"`
 }
 
-func NewQueryFilter(field string, values []interface{}, op string, ft string) *QueryFilter {
+func NewQueryFilter(field string, values []interface{}, op Operator, ft string) *QueryFilter {
 	return &QueryFilter{
-		FieldName:       field,
-		FilterValues:    values,
-		FilterOperation: op,
-		Connector:       "AND",
-		FieldType:       ft,
+		FieldName:    field,
+		FilterValues: values,
+		Operator:     op,
+		Connector:    AND,
+		FieldType:    ft,
 	}
 }

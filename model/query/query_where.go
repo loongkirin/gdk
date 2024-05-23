@@ -2,10 +2,10 @@ package query
 
 type QueryWhere struct {
 	QueryFilters []QueryFilter `json:"query_filters"`
-	Connector    string        `json:"connector"`
+	Connector    Connector     `json:"connector"`
 }
 
-func NewDbQueryWhere(filters []QueryFilter, connector string) *QueryWhere {
+func NewQueryWhere(filters []QueryFilter, connector Connector) *QueryWhere {
 	return &QueryWhere{
 		QueryFilters: filters,
 		Connector:    connector,

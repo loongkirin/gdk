@@ -5,7 +5,7 @@ type QueryOrderBy struct {
 	IsAsc     bool   `json:"is_asc"`
 }
 
-func NewDDbQueryOrderBy(field string, asc bool) *QueryOrderBy {
+func NewQueryOrderBy(field string, asc bool) *QueryOrderBy {
 	return &QueryOrderBy{
 		FieldName: field,
 		IsAsc:     asc,

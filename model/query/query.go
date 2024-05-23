@@ -5,6 +5,27 @@ import (
 	"strings"
 )
 
+type Operator string
+
+const (
+	EQ      Operator = "EQ"
+	NEQ     Operator = "NEQ"
+	LT      Operator = "LT"
+	LTE     Operator = "LTE"
+	GT      Operator = "GT"
+	GTE     Operator = "GTE"
+	LIKE    Operator = "LIKE"
+	IN      Operator = "IN"
+	BETWEEN Operator = "BETWEEN"
+)
+
+type Connector string
+
+const (
+	AND Connector = "AND"
+	OR  Connector = "OR"
+)
+
 type Query struct {
 	QueryWheres []QueryWhere   `json:"query_wheres"`
 	OrderBy     []QueryOrderBy `json:"order_by"`
@@ -12,7 +33,7 @@ type Query struct {
 	PageNumber  int            `json:"page_number"`
 }
 
-func NewDbQuery(wheres []QueryWhere, ps int, pn int, order []QueryOrderBy) *Query {
+func NewQuery(wheres []QueryWhere, ps int, pn int, order []QueryOrderBy) *Query {
 	return &Query{
 		QueryWheres: wheres,
 		PageSize:    ps,
@@ -35,32 +56,32 @@ func (q *Query) GetWhereClause() (whereClause string, values []interface{}, orde
 		for _, filter := range where.QueryFilters {
 			fieldName := filter.FieldName
 			var op string
-			switch filter.FilterOperation {
-			case "EQ":
+			switch filter.Operator {
+			case EQ:
 				op = " = ? "
 				values = append(values, filter.FilterValues[0])
-			case "NEQ":
+			case NEQ:
 				op = " <> ? "
 				values = append(values, filter.FilterValues[0])
-			case "LT":
+			case LT:
 				op = " < ? "
 				values = append(values, filter.FilterValues[0])
-			case "LTE":
+			case LTE:
 				op = " <= ? "
 				values = append(values, filter.FilterValues[0])
-			case "GT":
+			case GT:
 				op = " > ? "
 				values = append(values, filter.FilterValues[0])
-			case "GTE":
+			case GTE:
 				op = " >= ? "
 				values = append(values, filter.FilterValues[0])
-			case "LIKE":
+			case LIKE:
 				op = " LIKE ? "
 				values = append(values, "%"+fmt.Sprint(filter.FilterValues[0])+"%")
-			case "IN":
+			case IN:
 				op = " IN ? "
 				values = append(values, filter.FilterValues)
-			case "BETWEEN":
+			case BETWEEN:
 				op = " BETWEEN ? AND ? "
 				values = append(values, filter.FilterValues[0], filter.FilterValues[1])
 			}
@@ -78,9 +99,9 @@ func (q *Query) GetWhereClause() (whereClause string, values []interface{}, orde
 	var sbOrder strings.Builder
 	for _, order := range q.OrderBy {
 		if order.IsAsc {
-			sbOrder.WriteString(fmt.Sprintf("%s,", order.FieldName))
+			sbOrder.WriteString(fmt.Sprintf("%s ASC,", order.FieldName))
 		} else {
-			sbOrder.WriteString(fmt.Sprintf("%s desc,", order.FieldName))
+			sbOrder.WriteString(fmt.Sprintf("%s DESC,", order.FieldName))
 		}
 	}
 	order = sbOrder.String()
