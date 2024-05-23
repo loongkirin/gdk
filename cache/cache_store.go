@@ -11,9 +11,10 @@ const (
 )
 
 var (
-	ErrCacheMiss  = errors.New("cache: key not found")
-	ErrNotStored  = errors.New("cache: not stored")
+	ErrNotStored  = errors.New("cache: item not stored")
 	ErrNotSupport = errors.New("cache: not support")
+	ErrKeyExists  = errors.New("cache: item already exists")
+	ErrCacheMiss  = errors.New("cache: item not found")
 )
 
 // CacheStore is the interface of a cache backend

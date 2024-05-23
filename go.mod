@@ -11,7 +11,6 @@ require (
 	github.com/mojocn/base64Captcha v1.3.6
 	github.com/o1egl/paseto/v2 v2.1.1
 	github.com/redis/go-redis/v9 v9.5.1
-	github.com/robfig/go-cache v0.0.0-20130306151617-9fc39e0dbf62
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.23.0
 	gorm.io/driver/postgres v1.5.7
