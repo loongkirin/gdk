@@ -50,6 +50,9 @@ func (dc *PostgresDbContext) GetDb() *gorm.DB {
 	}
 	dc.lock.Lock()
 	defer dc.lock.Unlock()
+	if dc.db != nil {
+		return dc.db
+	}
 	pgsqlconfig := gormpostgres.Config{
 		DSN:                  dc.DSN(),
 		PreferSimpleProtocol: false,
