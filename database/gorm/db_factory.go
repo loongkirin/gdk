@@ -1,15 +1,19 @@
 package gorm
 
 import (
-	cfg "github.com/loongkirin/gdk/database"
-	pg "github.com/loongkirin/gdk/database/gorm/postgres"
+	database "github.com/loongkirin/gdk/database"
+	gdkpostgres "github.com/loongkirin/gdk/database/gorm/postgres"
 )
 
-func CreateDbContext(cfg cfg.DbConfig) DbContext {
+func CreateDbContext(cfg *database.DbConfig) DbContext {
 	var dbcontext DbContext
 	switch cfg.DbType {
 	case "postgres":
-		dbcontext = pg.NewPostgresDbContext(&cfg)
+		pgDbContext, err := gdkpostgres.NewPostgresDbContext(cfg)
+		if err != nil {
+			panic(err)
+		}
+		dbcontext = pgDbContext
 	}
 
 	return dbcontext

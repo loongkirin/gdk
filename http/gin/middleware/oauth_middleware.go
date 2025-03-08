@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	response "github.com/loongkirin/gdk/gin/api"
-	oauth "github.com/loongkirin/gdk/oauth"
+	"github.com/loongkirin/gdk/http/response"
+	"github.com/loongkirin/gdk/oauth"
 )
 
 const (
@@ -19,19 +19,19 @@ func OAuthMiddleware(oauthMaker oauth.OAuthMaker) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		authorizationHeader := ctx.GetHeader(authorizationHeaderKey)
 		if len(authorizationHeader) == 0 {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, response.NewResponse(response.UNAUTHORIZED, "Authorization Header Invalid"))
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, response.NewResponse(response.UNAUTHORIZED, "Authorization header invalid"))
 			return
 		}
 
 		fields := strings.Fields(authorizationHeader)
 		if len(fields) < 2 {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, response.NewResponse(response.UNAUTHORIZED, "Authorization Header Invalid"))
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, response.NewResponse(response.UNAUTHORIZED, "Authorization header invalid"))
 			return
 		}
 
 		authorizationType := strings.ToLower(fields[0])
 		if authorizationType != authorizationTypeBearer {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, response.NewResponse(response.UNAUTHORIZED, "Authorization Type Invalid"))
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, response.NewResponse(response.UNAUTHORIZED, "Authorization type invalid"))
 			return
 		}
 

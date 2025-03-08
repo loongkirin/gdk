@@ -1,9 +1,14 @@
 package gorm
 
 type DbConfig struct {
-	DbType          string `mapstructure:"db_type" json:"db_type" yaml:"db_type"`
+	DbType string         `mapstructure:"db_type" json:"db_type" yaml:"db_type"`
+	Master DBConnection   `mapstructure:"master" json:"master" yaml:"master"`
+	Slaves []DBConnection `mapstructure:"slaves" json:"slaves" yaml:"slaves"`
+}
+
+type DBConnection struct {
 	Host            string `mapstructure:"host" json:"host" yaml:"host"`
-	Port            string `mapstructure:"port" json:"port" yaml:"port"`
+	Port            int    `mapstructure:"port" json:"port" yaml:"port"`
 	Config          string `mapstructure:"config" json:"config" yaml:"config"`
 	User            string `mapstructure:"user" json:"user" yaml:"user"`
 	Password        string `mapstructure:"password" json:"password" yaml:"password"`

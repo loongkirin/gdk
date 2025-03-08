@@ -49,11 +49,11 @@ func (i *item) Expired() bool {
 }
 
 type MemeoryCache struct {
-	*cache
+	*innerMemeoryCache
 	// If this is confusing, see the comment at the bottom of New()
 }
 
-type cache struct {
+type innerMemeoryCache struct {
 	sync.Mutex
 	defaultExpiration time.Duration
 	items             map[string]*item
@@ -63,7 +63,7 @@ type cache struct {
 // Add an item to the cache, replacing any existing item. If the duration is 0,
 // the cache's default expiration time is used. If it is -1, the item never
 // expires.
-func (c *cache) Set(k string, x interface{}, d time.Duration) {
+func (c *innerMemeoryCache) Set(k string, x interface{}, d time.Duration) {
 	c.Lock()
 	c.set(k, x, d)
 	// TODO: Calls to mu.Unlock are currently not deferred because defer
@@ -71,7 +71,7 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 	c.Unlock()
 }
 
-func (c *cache) set(k string, x interface{}, d time.Duration) {
+func (c *innerMemeoryCache) set(k string, x interface{}, d time.Duration) {
 	var e *time.Time
 	if d == 0 {
 		d = c.defaultExpiration
@@ -88,7 +88,7 @@ func (c *cache) set(k string, x interface{}, d time.Duration) {
 
 // Add an item to the cache only if an item doesn't already exist for the given
 // key, or if the existing item has expired. Returns an error otherwise.
-func (c *cache) Add(k string, x interface{}, d time.Duration) error {
+func (c *innerMemeoryCache) Add(k string, x interface{}, d time.Duration) error {
 	c.Lock()
 	_, found := c.get(k)
 	if found {
@@ -102,7 +102,7 @@ func (c *cache) Add(k string, x interface{}, d time.Duration) error {
 
 // Set a new value for the cache key only if it already exists. Returns an
 // error if it does not.
-func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
+func (c *innerMemeoryCache) Replace(k string, x interface{}, d time.Duration) error {
 	c.Lock()
 	_, found := c.get(k)
 	if !found {
@@ -116,14 +116,14 @@ func (c *cache) Replace(k string, x interface{}, d time.Duration) error {
 
 // Get an item from the cache. Returns the item or nil, and a bool indicating
 // whether the key was found.
-func (c *cache) Get(k string) (interface{}, bool) {
+func (c *innerMemeoryCache) Get(k string) (interface{}, bool) {
 	c.Lock()
 	x, found := c.get(k)
 	c.Unlock()
 	return x, found
 }
 
-func (c *cache) get(k string) (interface{}, bool) {
+func (c *innerMemeoryCache) get(k string) (interface{}, bool) {
 	item, found := c.items[k]
 	if !found {
 		return nil, false
@@ -139,7 +139,7 @@ func (c *cache) get(k string) (interface{}, bool) {
 // item's value is not floating point, if it was not found, or if it is not
 // possible to increment it by n. Pass a negative number to decrement the
 // value.
-func (c *cache) IncrementFloat(k string, n float64) error {
+func (c *innerMemeoryCache) IncrementFloat(k string, n float64) error {
 	c.Lock()
 	v, found := c.items[k]
 	if !found || v.Expired() {
@@ -164,7 +164,7 @@ func (c *cache) IncrementFloat(k string, n float64) error {
 // item's value is not an integer, if it was not found, or if it is not
 // possible to increment it by n.
 // Wraps around on overlow.
-func (c *cache) Increment(k string, n uint64) (uint64, error) {
+func (c *innerMemeoryCache) Increment(k string, n uint64) (uint64, error) {
 	c.Lock()
 	defer c.Unlock()
 	v, found := c.items[k]
@@ -214,7 +214,7 @@ func (c *cache) Increment(k string, n uint64) (uint64, error) {
 // item's value is not an integer, if it was not found, or if it is not
 // possible to decrement it by n.
 // Stops at 0 on underflow.
-func (c *cache) Decrement(k string, n uint64) (uint64, error) {
+func (c *innerMemeoryCache) Decrement(k string, n uint64) (uint64, error) {
 	// TODO: Implement Increment and Decrement more cleanly.
 	// (Cannot do Increment(k, n*-1) for uints.)
 	c.Lock()
@@ -317,7 +317,7 @@ func (c *cache) Decrement(k string, n uint64) (uint64, error) {
 }
 
 // Delete an item from the cache. Does nothing if the key is not in the cache.
-func (c *cache) Delete(k string) (found bool) {
+func (c *innerMemeoryCache) Delete(k string) (found bool) {
 	c.Lock()
 	_, found = c.get(k)
 	c.delete(k)
@@ -325,12 +325,12 @@ func (c *cache) Delete(k string) (found bool) {
 	return
 }
 
-func (c *cache) delete(k string) {
+func (c *innerMemeoryCache) delete(k string) {
 	delete(c.items, k)
 }
 
 // Delete all expired items from the cache.
-func (c *cache) DeleteExpired() {
+func (c *innerMemeoryCache) DeleteExpired() {
 	c.Lock()
 	for k, v := range c.items {
 		if v.Expired() {
@@ -341,7 +341,7 @@ func (c *cache) DeleteExpired() {
 }
 
 // Write the cache's items (using Gob) to an io.Writer.
-func (c *cache) Save(w io.Writer) (err error) {
+func (c *innerMemeoryCache) Save(w io.Writer) (err error) {
 	enc := gob.NewEncoder(w)
 
 	defer func() {
@@ -358,7 +358,7 @@ func (c *cache) Save(w io.Writer) (err error) {
 
 // Save the cache's items to the given filename, creating the file if it
 // doesn't exist, and overwriting it if it does.
-func (c *cache) SaveFile(fname string) error {
+func (c *innerMemeoryCache) SaveFile(fname string) error {
 	fp, err := os.Create(fname)
 	if err != nil {
 		return err
@@ -373,7 +373,7 @@ func (c *cache) SaveFile(fname string) error {
 
 // Add (Gob-serialized) cache items from an io.Reader, excluding any items with
 // keys that already exist in the current cache.
-func (c *cache) Load(r io.Reader) error {
+func (c *innerMemeoryCache) Load(r io.Reader) error {
 	dec := gob.NewDecoder(r)
 	items := map[string]*item{}
 	err := dec.Decode(&items)
@@ -390,7 +390,7 @@ func (c *cache) Load(r io.Reader) error {
 
 // Load and add cache items from the given filename, excluding any items with
 // keys that already exist in the current cache.
-func (c *cache) LoadFile(fname string) error {
+func (c *innerMemeoryCache) LoadFile(fname string) error {
 	fp, err := os.Open(fname)
 	if err != nil {
 		return err
@@ -404,7 +404,7 @@ func (c *cache) LoadFile(fname string) error {
 }
 
 // Delete all items from the cache.
-func (c *cache) Flush() {
+func (c *innerMemeoryCache) Flush() {
 	c.Lock()
 	c.items = map[string]*item{}
 	c.Unlock()
@@ -415,7 +415,7 @@ type janitor struct {
 	stop     chan bool
 }
 
-func (j *janitor) Run(c *cache) {
+func (j *janitor) Run(c *innerMemeoryCache) {
 	j.stop = make(chan bool)
 	tick := time.NewTicker(j.Interval).C
 	for {
@@ -432,7 +432,7 @@ func stopJanitor(c *MemeoryCache) {
 	c.janitor.stop <- true
 }
 
-func runJanitor(c *cache, ci time.Duration) {
+func runJanitor(c *innerMemeoryCache, ci time.Duration) {
 	j := &janitor{
 		Interval: ci,
 	}
@@ -440,11 +440,11 @@ func runJanitor(c *cache, ci time.Duration) {
 	go j.Run(c)
 }
 
-func newCache(de time.Duration) *cache {
+func newCache(de time.Duration) *innerMemeoryCache {
 	if de == 0 {
 		de = -1
 	}
-	c := &cache{
+	c := &innerMemeoryCache{
 		defaultExpiration: de,
 		items:             map[string]*item{},
 	}
@@ -477,11 +477,11 @@ type unexportedShardedCache struct {
 
 type shardedCache struct {
 	m       uint32
-	cs      []*cache
+	cs      []*innerMemeoryCache
 	janitor *shardedJanitor
 }
 
-func (sc *shardedCache) bucket(k string) *cache {
+func (sc *shardedCache) bucket(k string) *innerMemeoryCache {
 	h := fnv.New32()
 	h.Write([]byte(k))
 	n := binary.BigEndian.Uint32(h.Sum(nil))
@@ -565,10 +565,10 @@ func runShardedJanitor(sc *shardedCache, ci time.Duration) {
 func newShardedCache(n int, de time.Duration) *shardedCache {
 	sc := &shardedCache{
 		m:  uint32(n - 1),
-		cs: make([]*cache, n),
+		cs: make([]*innerMemeoryCache, n),
 	}
 	for i := 0; i < n; i++ {
-		c := &cache{
+		c := &innerMemeoryCache{
 			defaultExpiration: de,
 			items:             map[string]*item{},
 		}

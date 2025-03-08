@@ -1,4 +1,4 @@
-package query
+package request
 
 type QueryWhere struct {
 	QueryFilters []*QueryFilter `json:"query_filters"`

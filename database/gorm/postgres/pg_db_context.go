@@ -2,75 +2,91 @@ package postgres
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
-	cfg "github.com/loongkirin/gdk/database"
+	database "github.com/loongkirin/gdk/database"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/plugin/opentelemetry/tracing"
 )
 
 type PostgresDbContext struct {
-	DbConfig *cfg.DbConfig
-	db       *gorm.DB
-	lock     sync.Mutex
+	DbConfig *database.DbConfig
+	master   *gorm.DB
+	slaves   []*gorm.DB
+	lock     sync.RWMutex
+	current  int
 }
 
-func NewPostgresDbContext(dbconfig *cfg.DbConfig) *PostgresDbContext {
-	dbcontext := PostgresDbContext{DbConfig: dbconfig}
-	return &dbcontext
-}
-
-func (dc *PostgresDbContext) DSN() string {
-	var sb strings.Builder
-	sb.WriteString("host=")
-	sb.WriteString(dc.DbConfig.Host)
-
-	sb.WriteString(" user=")
-	sb.WriteString(dc.DbConfig.User)
-
-	sb.WriteString(" password=")
-	sb.WriteString(dc.DbConfig.Password)
-
-	sb.WriteString(" dbname=")
-	sb.WriteString(dc.DbConfig.DbName)
-
-	sb.WriteString(" port=")
-	sb.WriteString(dc.DbConfig.Port)
-
-	sb.WriteString(" ")
-	sb.WriteString(dc.DbConfig.Config)
-	return sb.String()
-}
-
-func (dc *PostgresDbContext) GetDb() *gorm.DB {
-	if dc.db != nil {
-		return dc.db
+func NewPostgresDbContext(cfg *database.DbConfig) (*PostgresDbContext, error) {
+	master, err := connectDB(cfg.Master)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to master: %w", err)
 	}
-	dc.lock.Lock()
-	defer dc.lock.Unlock()
-	if dc.db != nil {
-		return dc.db
+
+	if err := master.Use(tracing.NewPlugin()); err != nil {
+		return nil, fmt.Errorf("failed to enable tracing: %w", err)
 	}
+
+	var slaves []*gorm.DB
+	for _, slaveCfg := range cfg.Slaves {
+		slave, err := connectDB(slaveCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to slave: %w", err)
+		}
+		if err := slave.Use(tracing.NewPlugin()); err != nil {
+			return nil, fmt.Errorf("failed to enable tracing: %w", err)
+		}
+		slaves = append(slaves, slave)
+	}
+
+	return &PostgresDbContext{
+		DbConfig: cfg,
+		master:   master,
+		slaves:   slaves,
+	}, nil
+}
+
+func connectDB(cfg database.DBConnection) (*gorm.DB, error) {
+	dsn := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable %s",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DbName, cfg.Config,
+	)
 	pgsqlconfig := gormpostgres.Config{
-		DSN:                  dc.DSN(),
+		DSN:                  dsn,
 		PreferSimpleProtocol: false,
 	}
-
-	if db, err := gorm.Open(gormpostgres.New(pgsqlconfig), &gorm.Config{}); err != nil {
-		fmt.Println("open db error")
-		fmt.Println(err)
-		return nil
-	} else {
-		fmt.Println("open db success")
-		sqlDB, _ := db.DB()
-		sqlDB.SetMaxIdleConns(dc.DbConfig.MaxIdleConns)
-		sqlDB.SetMaxOpenConns(dc.DbConfig.MaxOpenConns)
-		if duration, err := time.ParseDuration(dc.DbConfig.ConnMaxLifetime); err == nil {
-			sqlDB.SetConnMaxLifetime(duration)
-		}
-		dc.db = db
-		return db
+	db, err := gorm.Open(gormpostgres.New(pgsqlconfig), &gorm.Config{})
+	if err != nil {
+		return nil, err
 	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
+	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
+	if duration, err := time.ParseDuration(cfg.ConnMaxLifetime); err == nil {
+		sqlDB.SetConnMaxLifetime(duration)
+	}
+	return db, nil
+}
+
+func (db *PostgresDbContext) GetMasterDb() *gorm.DB {
+	return db.master
+}
+
+func (db *PostgresDbContext) GetSlaveDb() *gorm.DB {
+	if len(db.slaves) == 0 {
+		return db.master
+	}
+
+	db.lock.Lock()
+	defer db.lock.Unlock()
+
+	db.current = (db.current + 1) % len(db.slaves)
+	return db.slaves[db.current]
 }

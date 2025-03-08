@@ -5,20 +5,6 @@ import (
 	"strings"
 )
 
-type Operator string
-
-const (
-	EQ      Operator = "EQ"
-	NEQ     Operator = "NEQ"
-	LT      Operator = "LT"
-	LTE     Operator = "LTE"
-	GT      Operator = "GT"
-	GTE     Operator = "GTE"
-	LIKE    Operator = "LIKE"
-	IN      Operator = "IN"
-	BETWEEN Operator = "BETWEEN"
-)
-
 type Connector string
 
 const (
@@ -26,15 +12,29 @@ const (
 	OR  Connector = "OR"
 )
 
-type Query struct {
-	QueryWheres []*QueryWhere   `json:"query_wheres"`
-	OrderBy     []*QueryOrderBy `json:"order_by"`
-	PageSize    int             `json:"page_size"`
-	PageNumber  int             `json:"page_number"`
+type FilterOperation string
+
+const (
+	EQ      FilterOperation = "EQ"
+	NEQ     FilterOperation = "NEQ"
+	LT      FilterOperation = "LT"
+	LTE     FilterOperation = "LTE"
+	GT      FilterOperation = "GT"
+	GTE     FilterOperation = "GTE"
+	LIKE    FilterOperation = "LIKE"
+	IN      FilterOperation = "IN"
+	BETWEEN FilterOperation = "BETWEEN"
+)
+
+type DbQuery struct {
+	QueryWheres []DbQueryWhere   `json:"query_wheres"`
+	OrderBy     []DbQueryOrderBy `json:"order_by"`
+	PageSize    int              `json:"page_size"`
+	PageNumber  int              `json:"page_number"`
 }
 
-func NewQuery(wheres []*QueryWhere, ps int, pn int, order []*QueryOrderBy) *Query {
-	return &Query{
+func NewDbQuery(wheres []DbQueryWhere, ps int, pn int, order []DbQueryOrderBy) *DbQuery {
+	return &DbQuery{
 		QueryWheres: wheres,
 		PageSize:    ps,
 		PageNumber:  pn,
@@ -42,7 +42,7 @@ func NewQuery(wheres []*QueryWhere, ps int, pn int, order []*QueryOrderBy) *Quer
 	}
 }
 
-func (q *Query) GetWhereClause() (whereClause string, values []interface{}, order string) {
+func (q *DbQuery) GetWhereClause() (whereClause string, values []interface{}, order string) {
 	whereClause = " 1=1 "
 	order = "id"
 	if len(q.QueryWheres) < 1 {
@@ -56,7 +56,7 @@ func (q *Query) GetWhereClause() (whereClause string, values []interface{}, orde
 		for _, filter := range where.QueryFilters {
 			fieldName := filter.FieldName
 			var op string
-			switch filter.Operator {
+			switch filter.FilterOperation {
 			case EQ:
 				op = " = ? "
 				values = append(values, filter.FilterValues[0])
@@ -99,7 +99,7 @@ func (q *Query) GetWhereClause() (whereClause string, values []interface{}, orde
 	var sbOrder strings.Builder
 	for _, order := range q.OrderBy {
 		if order.IsAsc {
-			sbOrder.WriteString(fmt.Sprintf("%s ASC,", order.FieldName))
+			sbOrder.WriteString(fmt.Sprintf("%s,", order.FieldName))
 		} else {
 			sbOrder.WriteString(fmt.Sprintf("%s DESC,", order.FieldName))
 		}

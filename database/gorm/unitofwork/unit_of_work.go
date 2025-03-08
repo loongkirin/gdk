@@ -15,7 +15,7 @@ type unitOfWork struct {
 }
 
 func NewUnitOfWork(dbContext gdk.DbContext) uow.UnitOfWork {
-	db := dbContext.GetDb()
+	db := dbContext.GetMasterDb()
 	if db == nil {
 		return nil
 	}

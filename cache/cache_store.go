@@ -1,20 +1,12 @@
 package cache
 
 import (
-	"errors"
 	"time"
 )
 
 const (
 	DEFAULT = time.Duration(0)
 	FOREVER = time.Duration(-1)
-)
-
-var (
-	ErrNotStored  = errors.New("cache: item not stored")
-	ErrNotSupport = errors.New("cache: not support")
-	ErrKeyExists  = errors.New("cache: item already exists")
-	ErrCacheMiss  = errors.New("cache: item not found")
 )
 
 // CacheStore is the interface of a cache backend

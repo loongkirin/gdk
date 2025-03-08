@@ -1,12 +1,12 @@
 package query
 
-type QueryOrderBy struct {
+type DbQueryOrderBy struct {
 	FieldName string `json:"field_name"`
 	IsAsc     bool   `json:"is_asc"`
 }
 
-func NewQueryOrderBy(field string, asc bool) *QueryOrderBy {
-	return &QueryOrderBy{
+func NewDDbQueryOrderBy(field string, asc bool) DbQueryOrderBy {
+	return DbQueryOrderBy{
 		FieldName: field,
 		IsAsc:     asc,
 	}

@@ -1,10 +1,11 @@
-package cache
+package redis
 
 import (
 	"context"
 	"fmt"
 	"time"
 
+	"github.com/loongkirin/gdk/cache"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -24,17 +25,12 @@ func NewRedisStore(redisClient *redis.Client, prekey string, defaultExpiration t
 	}
 }
 
-func NewRedisStoreWithCfg(cfg RedisConfig, preKey string, defaultExpiration time.Duration) (*RedisStore, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:     cfg.Addr,
-		Password: cfg.Password,
-		DB:       cfg.DB,
-	})
-	_, err := client.Ping(context.Background()).Result()
+func NewRedisStoreWithCfg(cfg *RedisConfig, preKey string, defaultExpiration time.Duration) (*RedisStore, error) {
+	redisClient, err := NewRedisClient(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return NewRedisStore(client, preKey, defaultExpiration), nil
+	return NewRedisStore(redisClient.GetMasterDb(), preKey, defaultExpiration), nil
 }
 
 func (rs *RedisStore) UseWithContext(ctx context.Context) *RedisStore {
@@ -55,7 +51,7 @@ func (rs *RedisStore) Add(key string, value interface{}, expires time.Duration) 
 	_, err := rs.redisClient.Get(rs.Context, rs.Prekey+key).Result()
 	if err == redis.Nil {
 		fmt.Println(key, " does not exist")
-		return ErrNotStored
+		return cache.ErrNotStored
 	}
 
 	return rs.Set(key, value, expires)
@@ -69,7 +65,7 @@ func (rs *RedisStore) Get(key string) (string, error) {
 	value, err := rs.redisClient.Get(rs.Context, rs.Prekey+key).Result()
 	if err == redis.Nil {
 		fmt.Println(key, " does not exist")
-		return "", ErrNotStored
+		return "", cache.ErrNotStored
 	}
 	return value, nil
 }

@@ -1,18 +1,18 @@
-package cache
+package memeorycache
 
 import (
 	"time"
 
-	memCache "github.com/loongkirin/gdk/cache/memeorycache"
+	"github.com/loongkirin/gdk/cache"
 	"github.com/loongkirin/gdk/util"
 )
 
 type InMemeoryStore struct {
-	cache memCache.MemeoryCache
+	cache *MemeoryCache
 }
 
 func NewInMemoryStore(defaultExpiration time.Duration) *InMemeoryStore {
-	return &InMemeoryStore{*memCache.NewMemeoryCache(defaultExpiration, time.Minute)}
+	return &InMemeoryStore{NewMemeoryCache(defaultExpiration, time.Minute)}
 }
 
 func (ms *InMemeoryStore) Get(key string) (string, error) {
@@ -34,15 +34,15 @@ func (ms *InMemeoryStore) Set(key string, value interface{}, expires time.Durati
 
 func (ms *InMemeoryStore) Add(key string, value interface{}, expires time.Duration) error {
 	err := ms.cache.Add(key, value, expires)
-	if err == memCache.ErrKeyExists {
-		return ErrNotStored
+	if err == ErrKeyExists {
+		return cache.ErrKeyExists
 	}
 	return err
 }
 
 func (ms *InMemeoryStore) Replace(key string, value interface{}, expires time.Duration) error {
 	if err := ms.cache.Replace(key, value, expires); err != nil {
-		return ErrNotStored
+		return cache.ErrNotStored
 	}
 	return nil
 }
@@ -56,7 +56,7 @@ func (ms *InMemeoryStore) Delete(key string) error {
 
 func (ms *InMemeoryStore) Increment(key string, value int64) (int64, error) {
 	newValue, err := ms.cache.Increment(key, uint64(value))
-	if err == memCache.ErrCacheMiss {
+	if err == ErrCacheMiss {
 		return 0, ErrCacheMiss
 	}
 	return int64(newValue), err
@@ -64,7 +64,7 @@ func (ms *InMemeoryStore) Increment(key string, value int64) (int64, error) {
 
 func (ms *InMemeoryStore) Decrement(key string, value int64) (int64, error) {
 	newValue, err := ms.cache.Decrement(key, uint64(value))
-	if err == memCache.ErrCacheMiss {
+	if err == ErrCacheMiss {
 		return 0, ErrCacheMiss
 	}
 	return int64(newValue), err

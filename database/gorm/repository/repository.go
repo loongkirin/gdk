@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/loongkirin/gdk/model/query"
+	"github.com/loongkirin/gdk/database/query"
 	"gorm.io/gorm"
 )
 
@@ -34,7 +34,7 @@ func (r *Repository[T]) QueryById(ctx context.Context, id string) (*T, error) {
 	return data, nil
 }
 
-func (r *Repository[T]) Query(ctx context.Context, query *query.Query) ([]T, error) {
+func (r *Repository[T]) Query(ctx context.Context, query *query.DbQuery) ([]T, error) {
 	datas := []T{}
 	whereClaues, values, order := query.GetWhereClause()
 	offset := (query.PageNumber - 1) * query.PageSize
