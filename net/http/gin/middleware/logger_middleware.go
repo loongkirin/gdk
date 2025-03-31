@@ -30,12 +30,14 @@ func Logger(logger gdklogger.Logger) gin.HandlerFunc {
 			body = []byte{}
 		}
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+
 		// 记录响应体
 		writer := &responseWriter{
 			ResponseWriter: c.Writer,
 			body:           &bytes.Buffer{},
 		}
 		c.Writer = writer
+
 		// 处理请求
 		c.Next()
 

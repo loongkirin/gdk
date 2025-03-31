@@ -4,12 +4,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 )
 
 var (
-	otelMeter = otel.GetMeterProvider().Meter("gin-http-metrics")
+	otelMeter = otel.GetMeterProvider().Meter(otelgin.ScopeName)
 
 	// OpenTelemetry metrics
 	otelRequestDuration, _ = otelMeter.Float64Histogram(

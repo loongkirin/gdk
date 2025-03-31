@@ -6,8 +6,11 @@ import (
 
 	database "github.com/loongkirin/gdk/database"
 	"github.com/loongkirin/gdk/util"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/plugin/opentelemetry/metrics"
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
@@ -25,9 +28,28 @@ func NewPostgresDbContext(cfg *database.DbConfig) (*PostgresDbContext, error) {
 		return nil, fmt.Errorf("failed to connect to master: %w", err)
 	}
 
-	if err := master.Use(tracing.NewPlugin()); err != nil {
+	tracingPlugin := tracing.NewPlugin(
+		tracing.WithDBName(cfg.Master.DbName),
+		tracing.WithRecordStackTrace(),
+		tracing.WithQueryFormatter(func(query string) string {
+			return query
+		}),
+	)
+	if err := master.Use(tracingPlugin); err != nil {
 		return nil, fmt.Errorf("failed to enable tracing: %w", err)
 	}
+
+	sqlDB, err := master.DB()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sql db: %w", err)
+	}
+
+	opts := []metric.ObserveOption{
+		metric.WithAttributes(
+			attribute.String("db_name", cfg.Master.DbName),
+		),
+	}
+	metrics.ReportDBStatsMetrics(sqlDB, opts...)
 
 	var slaves []*gorm.DB
 	for _, slaveCfg := range cfg.Slaves {
@@ -35,9 +57,14 @@ func NewPostgresDbContext(cfg *database.DbConfig) (*PostgresDbContext, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to slave: %w", err)
 		}
-		if err := slave.Use(tracing.NewPlugin()); err != nil {
+		if err := slave.Use(tracingPlugin); err != nil {
 			return nil, fmt.Errorf("failed to enable tracing: %w", err)
 		}
+		sqlDB, err := slave.DB()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get sql db: %w", err)
+		}
+		metrics.ReportDBStatsMetrics(sqlDB, opts...)
 		slaves = append(slaves, slave)
 	}
 

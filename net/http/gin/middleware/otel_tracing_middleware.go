@@ -10,10 +10,12 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func Tracing(tracer trace.Tracer) gin.HandlerFunc {
+func OtelTracing() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
-		ctx := c.Request.Context()
+		span := trace.SpanFromContext(c.Request.Context())
+		defer span.End()
+
 		var body []byte
 		var err error
 		if c.Request.Body != nil {
@@ -23,25 +25,7 @@ func Tracing(tracer trace.Tracer) gin.HandlerFunc {
 			}
 		}
 
-		spanCtx, span := tracer.Start(ctx, c.Request.URL.Path,
-			trace.WithAttributes(
-				attribute.String("http.method", c.Request.Method),
-				attribute.String("http.url", c.Request.URL.String()),
-				attribute.String("http.trace_id", GetTraceID(c)),
-				attribute.String("http.request_id", GetRequestId(c)),
-				attribute.Int64("http.request_size", c.Request.ContentLength),
-				attribute.String("http.client_ip", c.ClientIP()),
-				attribute.String("http.user_agent", c.Request.UserAgent()),
-				attribute.String("http.request_body", string(body)),
-			),
-		)
-		defer span.End()
-
-		c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
-		// 将 span 上下文传递给后续处理器
-		c.Request = c.Request.WithContext(spanCtx)
-
-		span.AddEvent("http.request.start", trace.WithAttributes(
+		span.SetAttributes(
 			attribute.String("http.method", c.Request.Method),
 			attribute.String("http.url", c.Request.URL.String()),
 			attribute.String("http.trace_id", GetTraceID(c)),
@@ -50,7 +34,9 @@ func Tracing(tracer trace.Tracer) gin.HandlerFunc {
 			attribute.String("http.client_ip", c.ClientIP()),
 			attribute.String("http.user_agent", c.Request.UserAgent()),
 			attribute.String("http.request_body", string(body)),
-		))
+		)
+
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 
 		// 记录响应体
 		writer := &responseWriter{
@@ -62,14 +48,6 @@ func Tracing(tracer trace.Tracer) gin.HandlerFunc {
 		c.Next()
 
 		duration := time.Since(start).Milliseconds()
-		span.AddEvent("http.request.end", trace.WithAttributes(
-			attribute.Int("http.status_code", c.Writer.Status()),
-			attribute.Int64("http.response_size", int64(c.Writer.Size())),
-			attribute.String("http.response_body", writer.body.String()),
-			attribute.Int64("http.duration", duration),
-		))
-
-		// 记录响应状态
 		span.SetAttributes(
 			attribute.Int("http.status_code", c.Writer.Status()),
 			attribute.Int64("http.response_size", int64(c.Writer.Size())),
