@@ -34,7 +34,13 @@ func NewPostgresDbContext(cfg *database.DbConfig) (*PostgresDbContext, error) {
 		tracing.WithQueryFormatter(func(query string) string {
 			return query
 		}),
+		tracing.WithAttributes(
+			attribute.String("db.type", "postgres"),
+			attribute.String("db.host", cfg.Master.Host),
+			attribute.Int("db.port", cfg.Master.Port),
+		),
 	)
+
 	if err := master.Use(tracingPlugin); err != nil {
 		return nil, fmt.Errorf("failed to enable tracing: %w", err)
 	}
@@ -47,24 +53,50 @@ func NewPostgresDbContext(cfg *database.DbConfig) (*PostgresDbContext, error) {
 	opts := []metric.ObserveOption{
 		metric.WithAttributes(
 			attribute.String("db_name", cfg.Master.DbName),
+			attribute.String("db_type", "postgres"),
+			attribute.String("db_host", cfg.Master.Host),
+			attribute.Int("db_port", cfg.Master.Port),
+			attribute.String("db_role", "master"),
 		),
 	}
-	metrics.ReportDBStatsMetrics(sqlDB, opts...)
+
+	masterOpts := append(opts, metric.WithAttributes(
+		attribute.String("db_role", "master"),
+	))
+	metrics.ReportDBStatsMetrics(sqlDB, masterOpts...)
 
 	var slaves []*gorm.DB
-	for _, slaveCfg := range cfg.Slaves {
+	for i, slaveCfg := range cfg.Slaves {
 		slave, err := connectDB(slaveCfg)
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to slave: %w", err)
 		}
+
+		tracingPlugin := tracing.NewPlugin(
+			tracing.WithDBName(slaveCfg.DbName),
+			tracing.WithRecordStackTrace(),
+			tracing.WithQueryFormatter(func(query string) string {
+				return query
+			}),
+			tracing.WithAttributes(
+				attribute.String("db_type", "postgres"),
+				attribute.String("db_host", slaveCfg.Host),
+				attribute.Int("db_port", slaveCfg.Port),
+				attribute.String("db_role", fmt.Sprintf("slave_%d", i)),
+			),
+		)
+
 		if err := slave.Use(tracingPlugin); err != nil {
 			return nil, fmt.Errorf("failed to enable tracing: %w", err)
 		}
+		slaveOpts := append(opts, metric.WithAttributes(
+			attribute.String("db_role", fmt.Sprintf("slave_%d", i)),
+		))
 		sqlDB, err := slave.DB()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get sql db: %w", err)
 		}
-		metrics.ReportDBStatsMetrics(sqlDB, opts...)
+		metrics.ReportDBStatsMetrics(sqlDB, slaveOpts...)
 		slaves = append(slaves, slave)
 	}
 
@@ -116,4 +148,19 @@ func (db *PostgresDbContext) GetSlaveDb() *gorm.DB {
 
 	db.current = (db.current + 1) % len(db.slaves)
 	return db.slaves[db.current]
+}
+
+func (db *PostgresDbContext) HealthCheck() error {
+	// 检查 master
+	if err := db.master.Exec("SELECT 1").Error; err != nil {
+		return fmt.Errorf("master health check failed: %w", err)
+	}
+
+	// 检查 slaves
+	for i, slave := range db.slaves {
+		if err := slave.Exec("SELECT 1").Error; err != nil {
+			return fmt.Errorf("slave_%d health check failed: %w", i, err)
+		}
+	}
+	return nil
 }
