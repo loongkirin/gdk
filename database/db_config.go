@@ -1,9 +1,11 @@
 package gorm
 
 type DbConfig struct {
-	DbType string         `mapstructure:"db_type" json:"db_type" yaml:"db_type"`
-	Master DBConnection   `mapstructure:"master" json:"master" yaml:"master"`
-	Slaves []DBConnection `mapstructure:"slaves" json:"slaves" yaml:"slaves"`
+	DbType        string         `mapstructure:"db_type" json:"db_type" yaml:"db_type"`
+	Master        DBConnection   `mapstructure:"master" json:"master" yaml:"master"`
+	Slaves        []DBConnection `mapstructure:"slaves" json:"slaves" yaml:"slaves"`
+	EnableTracing bool           `mapstructure:"enable_tracing" json:"enable_tracing" yaml:"enable_tracing"`
+	EnableMetrics bool           `mapstructure:"enable_metrics" json:"enable_metrics" yaml:"enable_metrics"`
 }
 
 type DBConnection struct {

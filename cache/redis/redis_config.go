@@ -1,9 +1,11 @@
 package redis
 
 type RedisConfig struct {
-	Master   RedisConnection   `mapstructure:"master" json:"master" yaml:"master"`
-	Slaves   []RedisConnection `mapstructure:"slaves" json:"slaves" yaml:"slaves"`
-	PoolSize int               `mapstructure:"pool_size" json:"pool_size" yaml:"pool_size"`
+	Master        RedisConnection   `mapstructure:"master" json:"master" yaml:"master"`
+	Slaves        []RedisConnection `mapstructure:"slaves" json:"slaves" yaml:"slaves"`
+	PoolSize      int               `mapstructure:"pool_size" json:"pool_size" yaml:"pool_size"`
+	EnableTracing bool              `mapstructure:"enable_tracing" json:"enable_tracing" yaml:"enable_tracing"`
+	EnableMetrics bool              `mapstructure:"enable_metrics" json:"enable_metrics" yaml:"enable_metrics"`
 }
 
 type RedisConnection struct {

@@ -26,6 +26,7 @@ func InitMetrics(ctx context.Context, cfg TelemetryConfig) (metric.MeterProvider
 		),
 	)
 	if err != nil {
+		fmt.Println("failed to create metrics resource:", err)
 		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
@@ -39,24 +40,54 @@ func InitMetrics(ctx context.Context, cfg TelemetryConfig) (metric.MeterProvider
 		collecteTimeout = time.Second * 10
 	}
 
+	enableTLS := cfg.TlsConfig.EnableTLS()
+
 	// 创建指标导出器
 	var exporter sdkmetric.Exporter
 	switch cfg.CollectorType {
 	case "grpc":
-		exporter, err = otlpmetricgrpc.New(ctx,
+		grpcOptions := []otlpmetricgrpc.Option{
 			otlpmetricgrpc.WithEndpoint(cfg.CollectorURL),
 			otlpmetricgrpc.WithTimeout(collecteTimeout),
-		)
+		}
+		if enableTLS {
+			credentials, err := LoadTLSCredentials(cfg.TlsConfig)
+			if err != nil {
+				enableTLS = false
+				fmt.Println("failed to load TLS credentials:", err)
+			} else {
+				grpcOptions = append(grpcOptions, otlpmetricgrpc.WithTLSCredentials(credentials))
+			}
+		}
+		if !enableTLS {
+			grpcOptions = append(grpcOptions, otlpmetricgrpc.WithInsecure())
+		}
+		exporter, err = otlpmetricgrpc.New(ctx, grpcOptions...)
 	case "http":
-		exporter, err = otlpmetrichttp.New(ctx,
+		httpOptions := []otlpmetrichttp.Option{
 			otlpmetrichttp.WithEndpoint(cfg.CollectorURL),
 			otlpmetrichttp.WithTimeout(collecteTimeout),
-		)
+		}
+		if enableTLS {
+			tlsConfig, err := NewTLSConfig(cfg.TlsConfig)
+			if err != nil {
+				enableTLS = false
+				fmt.Println("failed to create TLS config:", err)
+			} else {
+				httpOptions = append(httpOptions, otlpmetrichttp.WithTLSClientConfig(tlsConfig))
+			}
+		}
+		if !enableTLS {
+			httpOptions = append(httpOptions, otlpmetrichttp.WithInsecure())
+		}
+		exporter, err = otlpmetrichttp.New(ctx, httpOptions...)
 	default:
-		return nil, fmt.Errorf("unsupported exporter type: %s", cfg.CollectorType)
+		fmt.Println("unsupported metrics exporter type:", cfg.CollectorType)
+		return nil, fmt.Errorf("unsupported metrics exporter type: %s", cfg.CollectorType)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to create exporter: %w", err)
+		fmt.Println("failed to create metrics exporter:", err)
+		return nil, fmt.Errorf("failed to create metrics exporter: %w", err)
 	}
 
 	// 创建指标处理器
@@ -73,6 +104,7 @@ func InitMetrics(ctx context.Context, cfg TelemetryConfig) (metric.MeterProvider
 	// 设置全局指标提供者
 	otel.SetMeterProvider(provider)
 
+	fmt.Println("metrics provider initialized")
 	return provider, nil
 }
 

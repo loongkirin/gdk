@@ -23,10 +23,6 @@ type RedisClient struct {
 }
 
 func NewRedisClient(cfg *RedisConfig) (*RedisClient, error) {
-	// 创建 tracer 和 meter
-	tracer := otel.Tracer("redis-client")
-	meter := otel.Meter("redis-client")
-
 	// 创建 master 客户端
 	master := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", cfg.Master.Host, cfg.Master.Port),
@@ -35,21 +31,18 @@ func NewRedisClient(cfg *RedisConfig) (*RedisClient, error) {
 		PoolSize: cfg.PoolSize,
 	})
 
-	// 添加重试机制
 	if err := master.Ping(context.Background()).Err(); err != nil {
 		return nil, fmt.Errorf("failed to connect to master redis: %w", err)
 	}
 
-	// 记录 master 指标
-	masterOpts := []metric.ObserveOption{
-		metric.WithAttributes(
-			attribute.String("redis_role", "master"),
-			attribute.String("redis_host", cfg.Master.Host),
-			attribute.Int("redis_port", cfg.Master.Port),
-			attribute.Int("redis_db", cfg.Master.DB),
-		),
+	var meter metric.Meter
+	var tracer trace.Tracer
+	if cfg.EnableMetrics {
+		// 创建 meter 和 tracer
+		meter = otel.Meter("redis-client")
+		tracer = otel.Tracer("redis-client")
+		reportRedisMetrics(master, meter, "master", cfg.Master)
 	}
-	reportRedisMetrics(master, meter, masterOpts...)
 
 	var slaves []*redis.Client
 	for i, slaveCfg := range cfg.Slaves {
@@ -60,16 +53,13 @@ func NewRedisClient(cfg *RedisConfig) (*RedisClient, error) {
 			PoolSize: cfg.PoolSize,
 		})
 
-		// 添加重试机制
 		if err := slave.Ping(context.Background()).Err(); err != nil {
 			return nil, fmt.Errorf("failed to connect to slave redis: %w", err)
 		}
 
-		// 记录 slave 指标
-		slaveOpts := append(masterOpts, metric.WithAttributes(
-			attribute.String("redis_role", fmt.Sprintf("slave_%d", i)),
-		))
-		reportRedisMetrics(slave, meter, slaveOpts...)
+		if cfg.EnableMetrics {
+			reportRedisMetrics(slave, meter, fmt.Sprintf("slave_%d", i), slaveCfg)
+		}
 		slaves = append(slaves, slave)
 	}
 
@@ -83,7 +73,7 @@ func NewRedisClient(cfg *RedisConfig) (*RedisClient, error) {
 }
 
 // 添加指标报告函数
-func reportRedisMetrics(client *redis.Client, meter metric.Meter, opts ...metric.ObserveOption) {
+func reportRedisMetrics(client *redis.Client, meter metric.Meter, dbRole string, dbConntection RedisConnection) {
 	// 创建指标
 	poolSize, _ := meter.Int64ObservableGauge(
 		"redis.pool.size",
@@ -97,6 +87,15 @@ func reportRedisMetrics(client *redis.Client, meter metric.Meter, opts ...metric
 		"redis.pool.total_connections",
 		metric.WithDescription("Total number of connections"),
 	)
+
+	opts := []metric.ObserveOption{
+		metric.WithAttributes(
+			attribute.String("redis.role", dbRole),
+			attribute.String("redis.host", dbConntection.Host),
+			attribute.Int("redis.port", dbConntection.Port),
+			attribute.Int("redis.db", dbConntection.DB),
+		),
+	}
 
 	// 注册回调
 	meter.RegisterCallback(
