@@ -7,23 +7,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gdklogger "github.com/loongkirin/gdk/logger"
-	"github.com/loongkirin/gdk/util"
 )
 
 func Logger(logger gdklogger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
-		traceId := GetTraceID(c)
-		if len(traceId) == 0 {
-			traceId = util.GenerateId()
-		}
-		SetTraceID(c, traceId)
-
-		requestId := GetRequestId(c)
-		if len(requestId) == 0 {
-			requestId = util.GenerateId()
-		}
-		SetRequestId(c, requestId)
 		body, err := c.GetRawData()
 		if err != nil {
 			logger.Error("Failed to get gin request body raw data", gdklogger.Fields{"error": err.Error})
@@ -49,8 +37,8 @@ func Logger(logger gdklogger.Logger) gin.HandlerFunc {
 		// }).Logger()
 
 		logger.Info("HTTP Request", gdklogger.Fields{
-			"traceId":      traceId,
-			"requestId":    requestId,
+			"traceId":      GetTraceID(c),
+			"requestId":    GetRequestId(c),
 			"method":       c.Request.Method,
 			"path":         c.Request.URL.Path,
 			"status":       c.Writer.Status(),

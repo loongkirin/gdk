@@ -8,10 +8,12 @@ import (
 func TraceId() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		traceId := GetOrSetTraceID(c)
-		if len(traceId) == 0 {
-			SetTraceID(c, util.GenerateId())
+		if traceId == "" {
+			traceId = util.GenerateId()
+			SetTraceID(c, traceId)
 		}
-
+		c.Set(TraceIdHeaderKey, traceId)
+		c.Writer.Header().Set(TraceIdHeaderKey, traceId)
 		c.Next()
 	}
 }

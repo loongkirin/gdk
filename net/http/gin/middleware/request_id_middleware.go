@@ -7,11 +7,13 @@ import (
 
 func RequestId() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		requestId := GetRequestId(c)
-		if len(requestId) == 0 {
-			SetRequestId(c, util.GenerateId())
+		requestId := GetOrSetRequestId(c)
+		if requestId == "" {
+			requestId = util.GenerateId()
+			SetRequestId(c, requestId)
 		}
-
+		c.Set(RequestIdHeaderKey, requestId)
+		c.Writer.Header().Set(RequestIdHeaderKey, requestId)
 		c.Next()
 	}
 }

@@ -6,16 +6,16 @@ import (
 )
 
 const (
-	TraceHeaderKey     = "x-trace-id"
+	TraceIdHeaderKey   = "x-trace-id"
 	RequestIdHeaderKey = "x-request-id"
 )
 
 func GetTraceID(c *gin.Context) string {
-	return c.GetHeader(TraceHeaderKey)
+	return c.GetHeader(TraceIdHeaderKey)
 }
 
 func SetTraceID(c *gin.Context, traceId string) {
-	c.Header(TraceHeaderKey, traceId)
+	c.Header(TraceIdHeaderKey, traceId)
 }
 
 func GetRequestId(c *gin.Context) string {
@@ -23,7 +23,7 @@ func GetRequestId(c *gin.Context) string {
 }
 
 func SetRequestId(c *gin.Context, requestId string) {
-	c.Header(RequestIdHeaderKey, requestId)
+	c.Request.Header.Set(RequestIdHeaderKey, requestId)
 }
 
 func GetOrSetTraceID(c *gin.Context) string {
