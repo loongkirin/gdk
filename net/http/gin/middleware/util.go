@@ -15,7 +15,7 @@ func GetTraceID(c *gin.Context) string {
 }
 
 func SetTraceID(c *gin.Context, traceId string) {
-	c.Header(TraceIdHeaderKey, traceId)
+	c.Request.Header.Set(TraceIdHeaderKey, traceId)
 }
 
 func GetRequestId(c *gin.Context) string {
