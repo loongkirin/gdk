@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"time"
 
@@ -30,25 +31,27 @@ func Logger(logger gdklogger.Logger) gin.HandlerFunc {
 		c.Next()
 
 		// 记录请求信息
-		duration := time.Since(start).Microseconds()
+		duration := float64(time.Since(start).Microseconds()) / 1e3
 		// ctxLogger := logger.With().Fields(map[string]interface{}{
 		// 	"traceId":   traceId,
 		// 	"requestId": requestId,
 		// }).Logger()
 
 		logger.Info("HTTP Request", gdklogger.Fields{
-			"traceId":      GetTraceID(c),
-			"requestId":    GetRequestId(c),
-			"method":       c.Request.Method,
-			"path":         c.Request.URL.Path,
-			"status":       c.Writer.Status(),
-			"duration":     duration,
-			"clientIp":     c.ClientIP(),
-			"userAgent":    c.Request.UserAgent(),
-			"requestSize":  c.Request.ContentLength,
-			"requestBody":  string(body),
-			"headers":      c.Request.Header,
-			"responseBody": writer.body.String(),
+			"traceId":          GetTraceID(c),
+			"requestId":        GetRequestId(c),
+			"method":           c.Request.Method,
+			"path":             c.Request.URL.Path,
+			"status":           c.Writer.Status(),
+			"duration":         fmt.Sprintf("%.3fms", duration),
+			"clientIp":         c.ClientIP(),
+			"userAgent":        c.Request.UserAgent(),
+			"requestSize":      c.Request.ContentLength,
+			"requestBody":      string(body),
+			"headers":          c.Request.Header,
+			"responseBody":     writer.body.String(),
+			"requestStartTime": start.Format(time.RFC3339Nano),
+			"requestEndTime":   time.Now().Format(time.RFC3339Nano),
 		})
 	}
 }

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"time"
 
@@ -33,6 +34,7 @@ func Tracing(tracer trace.Tracer) gin.HandlerFunc {
 				attribute.String("http.client_ip", c.ClientIP()),
 				attribute.String("http.user_agent", c.Request.UserAgent()),
 				attribute.String("http.request_body", string(body)),
+				attribute.String("http.request_start_time", start.Format(time.RFC3339Nano)),
 			),
 		)
 		defer span.End()
@@ -41,7 +43,7 @@ func Tracing(tracer trace.Tracer) gin.HandlerFunc {
 		// 将 span 上下文传递给后续处理器
 		c.Request = c.Request.WithContext(spanCtx)
 
-		span.AddEvent("http.request.start", trace.WithAttributes(
+		span.AddEvent("http.request_start", trace.WithAttributes(
 			attribute.String("http.method", c.Request.Method),
 			attribute.String("http.url", c.Request.URL.String()),
 			attribute.String("http.trace_id", GetTraceID(c)),
@@ -61,12 +63,12 @@ func Tracing(tracer trace.Tracer) gin.HandlerFunc {
 
 		c.Next()
 
-		duration := time.Since(start).Milliseconds()
-		span.AddEvent("http.request.end", trace.WithAttributes(
+		duration := float64(time.Since(start).Microseconds()) / 1e3
+		span.AddEvent("http.request_end", trace.WithAttributes(
 			attribute.Int("http.status_code", c.Writer.Status()),
 			attribute.Int64("http.response_size", int64(c.Writer.Size())),
 			attribute.String("http.response_body", writer.body.String()),
-			attribute.Int64("http.duration", duration),
+			attribute.String("http.duration", fmt.Sprintf("%.3fms", duration)),
 		))
 
 		// 记录响应状态
@@ -74,7 +76,8 @@ func Tracing(tracer trace.Tracer) gin.HandlerFunc {
 			attribute.Int("http.status_code", c.Writer.Status()),
 			attribute.Int64("http.response_size", int64(c.Writer.Size())),
 			attribute.String("http.response_body", writer.body.String()),
-			attribute.Int64("http.duration", duration),
+			attribute.String("http.duration", fmt.Sprintf("%fms", duration)),
+			attribute.String("http.request_end_time", time.Now().Format(time.RFC3339Nano)),
 		)
 	}
 }
