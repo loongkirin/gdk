@@ -44,7 +44,7 @@ func NewDbQuery(wheres []DbQueryWhere, ps int, pn int, order []DbQueryOrderBy) *
 
 func (q *DbQuery) GetWhereClause() (whereClause string, values []interface{}, order string) {
 	whereClause = " 1=1 "
-	order = "id"
+	order = q.GetOrderBy()
 	if len(q.QueryWheres) < 1 {
 		return whereClause, values, order
 	}
@@ -85,17 +85,26 @@ func (q *DbQuery) GetWhereClause() (whereClause string, values []interface{}, or
 				op = " BETWEEN ? AND ? "
 				values = append(values, filter.FilterValues[0], filter.FilterValues[1])
 			}
-			subClause.WriteString(fmt.Sprintf(" %s %s AND ", fieldName, op))
+			subClause.WriteString(fmt.Sprintf(" %s %s %s ", fieldName, op, filter.Connector))
 		}
 		subWhere := subClause.String()
 		subWhere = strings.Trim(subWhere, "AND ")
-		sb.WriteString(subWhere)
+		subWhere = strings.Trim(subWhere, "OR ")
+		sb.WriteString(fmt.Sprintf(" (%s) ", subWhere))
 		sb.WriteString(fmt.Sprintf(" %s ", where.Connector))
 	}
 	whereClause = whereClause + sb.String()
 	whereClause = strings.Trim(whereClause, "AND ")
 	whereClause = strings.Trim(whereClause, "OR ")
 
+	return whereClause, values, order
+}
+
+func (q *DbQuery) GetOrderBy() string {
+	order := "id"
+	if len(q.OrderBy) < 1 {
+		return order
+	}
 	var sbOrder strings.Builder
 	for _, order := range q.OrderBy {
 		if order.IsAsc {
@@ -106,8 +115,8 @@ func (q *DbQuery) GetWhereClause() (whereClause string, values []interface{}, or
 	}
 	order = sbOrder.String()
 	order = strings.Trim(order, ",")
-	if len(order) < 1 {
+	if order == "" {
 		order = "id"
 	}
-	return whereClause, values, order
+	return order
 }

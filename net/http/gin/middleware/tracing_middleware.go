@@ -76,7 +76,7 @@ func Tracing(tracer trace.Tracer) gin.HandlerFunc {
 			attribute.Int("http.status_code", c.Writer.Status()),
 			attribute.Int64("http.response_size", int64(c.Writer.Size())),
 			attribute.String("http.response_body", writer.body.String()),
-			attribute.String("http.duration", fmt.Sprintf("%fms", duration)),
+			attribute.String("http.duration", fmt.Sprintf("%.3fms", duration)),
 			attribute.String("http.request_end_time", time.Now().Format(time.RFC3339Nano)),
 		)
 	}
