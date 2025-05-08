@@ -28,7 +28,7 @@ var (
 var PasswordValidator = NewCustomValidator("password", func(fl validator.FieldLevel) bool {
 	value := fl.Field().String()
 	param := fl.Param()
-	matchModels := strings.Split(param, ",")
+	matchModels := strings.Split(param, "|")
 	for _, matchModel := range matchModels {
 		switch matchModel {
 		case "number":
@@ -49,7 +49,7 @@ var PasswordValidator = NewCustomValidator("password", func(fl validator.FieldLe
 }, func(ve validator.FieldError) string {
 	value := ve.Field()
 	param := ve.Param()
-	matchModels := strings.Split(param, ",")
+	matchModels := strings.Split(param, "|")
 	var messages [3]string
 	for _, matchModel := range matchModels {
 		switch matchModel {
