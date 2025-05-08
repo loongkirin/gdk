@@ -47,7 +47,7 @@ var PasswordValidator = NewCustomValidator("password", func(fl validator.FieldLe
 	}
 	return true
 }, func(ve validator.FieldError) string {
-	value := ve.Field()
+	value := ve.Value().(string)
 	param := ve.Param()
 	matchModels := strings.Split(param, "&")
 	var messages [3]string
